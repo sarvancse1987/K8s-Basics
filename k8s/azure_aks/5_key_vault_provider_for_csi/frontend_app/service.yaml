@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: private-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample
+      tier: private-frontend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: sample
+        tier: private-frontend
+        track: stable
+    spec:
+      containers:
+      - name: sampleapp-container
+        image: k8simagesregistery.azurecr.io/sampleapp:93658b1650b0a04cd050b9bdcf7ac8a98c4b80e8
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: Production
+        - name: DATABASE_USER
+          valueFrom: 
+            secretKeyRef: 
+              key: database_user
+              name: some-local-secrets
+        - name: DATABASE_PASSWORD
+          valueFrom: 
+            secretKeyRef: 
+              key: database_password
+              name: some-local-secrets
+        - name: LICENSE_KEY
+          valueFrom: 
+            secretKeyRef: 
+              key: license_key
+              name: some-local-secrets
+        - name: COMPUTERNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - mountPath: "/files"
+          name: filevolume
+        - mountPath: "/app/configurations"
+          name: configurations
+      volumes:
+        - name: filevolume
+          persistentVolumeClaim:
+            claimName: persistent-volume-claim
+        - name: configurations
+          configMap:
+            name: private-frontend-configurations
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: private-frontend
+spec:
+  selector:
+    app: sample
+    tier: private-frontend
+  ports:
+  - port: 8080
+    targetPort: 80
+  type: ClusterIP
